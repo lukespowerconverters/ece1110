@@ -1,0 +1,601 @@
+.fields
+   MWR = 37
+   LDMA = 36
+   MT = 35:33
+   CSR = 32:30
+   RS = 29:27
+   LDIR = 26
+   RWR = 25
+   REN = 24
+   LDA = 23
+   LDB = 22
+   AEN = 21
+   MEN = 20
+   IEN = 19
+   IS = 18:16
+   UBR = 15:13
+   ALU = 12:8
+   NEXT = 7:0
+.constants
+   CSR_N = 0
+   CSR_C = 1
+   CSR_W = 2
+   CSR_I = 3
+   CSR_S = 4
+   ALU_COPY_A = 0
+   ALU_COPY_B = 1
+   ALU_INC_A_1 = 2
+   ALU_DEC_A_1 = 3
+   ALU_INC_A_4 = 4
+   ALU_DEC_A_4 = 5
+   ALU_ADD = 6
+   ALU_SUB = 7
+   ALU_SLL = 8
+   ALU_SRL = 9
+   ALU_SRA = 10
+   ALU_AND = 11
+   ALU_OR = 12
+   ALU_XOR = 13
+   ALU_SLT = 14
+   ALU_SLTU = 15
+   ALU_INIT_PC = 16
+   ALU_MASK_12 = 17
+   ALU_EVEC = 18
+   RS_PC = 0
+   RS_RD = 1
+   RS_RS1 = 2
+   RS_RS2 = 3
+   RS_CA = 5
+   RS_CR = 6
+   RS_X0 = 7
+   UBR_X = 0
+   UBR_Z = 1
+   UBR_N = 2
+   UBR_D = 3
+   UBR_J = 4
+   UBR_EZ = 5
+   UBR_NZ = 6
+   UBR_S = 7
+   IS_X = 0
+   IS_I = 1
+   IS_S = 2
+   IS_B = 3
+   IS_U = 4
+   IS_J = 5
+   IS_Z = 6
+   MT_W = 0
+   MT_H = 1
+   MT_B = 2
+   MT_HU = 3
+   MT_BU = 4
+.code
+// Instruction Fetch
+// MA <- PC
+// A  <- PC
+FETCH:   RS=RS_PC, RWR=0, REN=1, LDA=1, AEN=0, LDMA=1, MEN=0, IEN=0, UBR=UBR_N
+// IR <- Mem        
+        LDIR=1, REN=0, LDA=0, AEN=0, LDMA=0, MWR=0, MEN=1, IEN=0, UBR=UBR_S
+// PC <- A + 4      
+        LDIR=0, RS=RS_PC, RWR=1, REN=1, LDA=0, ALU=ALU_INC_A_4, AEN=1, MEN=0, IEN=0, UBR=UBR_D
+// Dispatch on Opcode
+
+// NOP
+// UBr to FETCH     
+NOP:      LDIR=0, REN=0,  AEN=0, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+
+// ILLEGAL-OP
+// UBr to FETCH     
+ILLEGAL:  LDIR=0, REN=0,  AEN=0, MEN=0, IEN=0, UBR=UBR_N
+          LDIR=0, RS=RS_PC, RWR=1, REN=1, ALU=ALU_EVEC, AEN=1, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+
+// UNIMPLEMENTED
+// UBr to FETCH     
+UNIMP:    LDIR=0, REN=0, AEN=0, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+
+// Initialize PC Reg
+// PC <- START_ADDR 
+INIT_PC:  LDIR=0, RS=RS_PC, RWR=1, REN=1, ALU=ALU_INIT_PC, AEN=1, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+
+// --- Load & Store Instructions -----------------
+
+// LW
+// A  <- Reg[rs1]   
+LW:      LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// B  <- Sext(Imm12)
+        LDIR=0, REN=0, LDA=0, LDB=1, AEN=0, MEN=0, IS=IS_I , IEN=1, UBR=UBR_N
+// MA <- A + B      
+        LDIR=0, REN=0, LDA=0, LDB=0, ALU=ALU_ADD, AEN=1, LDMA=1, MEN=0, IEN=0, UBR=UBR_N
+// Reg[rd] <- Mem   
+        MT=MT_W, LDIR=0, RS=RS_RD, RWR=1, REN=1,  AEN=0, LDMA=0, MWR=0, MEN=1, IEN=0, UBR=UBR_S
+// UBr to FETCH     
+        LDIR=0, REN=0,  AEN=0, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+   // extra LW4 uop required since we can't both ujump to fetch0 or spin on LW3
+
+// SW
+// A  <- Reg[rs1]   
+SW:      LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// B <- Sext(SImm12)
+        LDIR=0, REN=0, LDA=0, LDB=1, AEN=0, MEN=0, IS=IS_S , IEN=1, UBR=UBR_N
+// MA <- A + B      
+        LDIR=0, REN=0, LDA=0, LDB=0, ALU=ALU_ADD  , AEN=1, LDMA=1, MEN=0, IEN=0, UBR=UBR_N
+// Mem <- Reg[rs2]  
+        MT=MT_W, LDIR=0, RS=RS_RS2, RWR=0, REN=1,  AEN=0, LDMA=0, MWR=1, MEN=1, IEN=0, UBR=UBR_S
+// UBr to FETCH     
+        LDIR=0, REN=0,  AEN=0, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+// SImm12 is a "split immediate"
+
+// LB
+// A  <- Reg[rs1]   
+LB:      LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// B  <- Sext(Imm12)
+        LDIR=0, REN=0, LDA=0, LDB=1, AEN=0, MEN=0, IS=IS_I , IEN=1, UBR=UBR_N
+// MA <- A + B      
+        LDIR=0, REN=0, LDA=0, LDB=0, ALU=ALU_ADD   , AEN=1, LDMA=1, MEN=0, IEN=0, UBR=UBR_N
+// Reg[rd] <- Mem   
+        MT=MT_B, LDIR=0, RS=RS_RD, RWR=1, REN=1,  AEN=0, LDMA=0, MWR=0, MEN=1, IEN=0, UBR=UBR_S
+// UBr to FETCH     
+        LDIR=0, REN=0,  AEN=0, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+   // extra LB+4 uop required since we can't both ujump to FETCH or spin in LB+3
+
+// SB
+// A  <- Reg[rs1]   
+SB:      LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// B <- Sext(SImm12)
+        LDIR=0, REN=0, LDA=0, LDB=1, AEN=0, MEN=0, IS=IS_S , IEN=1, UBR=UBR_N
+// MA <- A + B      
+        LDIR=0, REN=0, LDA=0, LDB=0, ALU=ALU_ADD  , AEN=1, LDMA=1, MEN=0, IEN=0, UBR=UBR_N
+// Mem <- Reg[rs2]  
+        MT=MT_B, LDIR=0, RS=RS_RS2, RWR=0, REN=1,  AEN=0, LDMA=0, MWR=1, MEN=1, IEN=0, UBR=UBR_S
+// UBr to FETCH     
+        LDIR=0, REN=0,  AEN=0, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+
+// SImm12 is a "split immediate"
+// LH
+// A  <- Reg[rs1]   
+LH:      LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// B  <- Sext(Imm12)
+        LDIR=0, REN=0, LDA=0, LDB=1, AEN=0, MEN=0, IS=IS_I , IEN=1, UBR=UBR_N
+// MA <- A + B      
+        LDIR=0, REN=0, LDA=0, LDB=0, ALU=ALU_ADD   , AEN=1, LDMA=1, MEN=0, IEN=0, UBR=UBR_N
+// Reg[rd] <- Mem   
+        MT=MT_H, LDIR=0, RS=RS_RD, RWR=1, REN=1,  AEN=0, LDMA=0, MWR=0, MEN=1, IEN=0, UBR=UBR_S
+// UBr to FETCH     
+        LDIR=0, REN=0,  AEN=0, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+   // extra LH4 uop required since we can't both ujump to fetch0 or spin on LH3
+
+// SH
+// A  <- Reg[rs1]   
+SH:      LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// B <- Sext(SImm12)
+        LDIR=0, REN=0, LDA=0, LDB=1, AEN=0, MEN=0, IS=IS_S , IEN=1, UBR=UBR_N
+// MA <- A + B      
+        LDIR=0, REN=0, LDA=0, LDB=0, ALU=ALU_ADD  , AEN=1, LDMA=1, MEN=0, IEN=0, UBR=UBR_N
+// Mem <- Reg[rs2]  
+        MT=MT_H, LDIR=0, RS=RS_RS2, RWR=0, REN=1,  AEN=0, LDMA=0, MWR=1, MEN=1, IEN=0, UBR=UBR_S
+// UBr to FETCH     
+        LDIR=0, REN=0,  AEN=0, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+// SImm12 is a "split immediate"
+
+// LBU
+// A  <- Reg[rs1]   
+LBU:     LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// B  <- Sext(Imm12)
+        LDIR=0, REN=0, LDA=0, LDB=1, AEN=0, MEN=0, IS=IS_I , IEN=1, UBR=UBR_N
+// MA <- A + B      
+        LDIR=0, REN=0, LDA=0, LDB=0, ALU=ALU_ADD   , AEN=1, LDMA=1, MEN=0, IEN=0, UBR=UBR_N
+// Reg[rd] <- Mem   
+        MT=MT_BU, LDIR=0, RS=RS_RD, RWR=1, REN=1,  AEN=0, LDMA=0, MWR=0, MEN=1, IEN=0, UBR=UBR_S
+// UBr to FETCH     
+        LDIR=0, REN=0,  AEN=0, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+   // extra LBU4 uop required since we can't both ujump to fetch0 or spin on LBU3
+
+// LHU
+// A  <- Reg[rs1]   
+LHU:     LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// B  <- Sext(Imm12)
+        LDIR=0, REN=0, LDA=0, LDB=1, AEN=0, MEN=0, IS=IS_I , IEN=1, UBR=UBR_N
+// MA <- A + B      
+        LDIR=0, REN=0, LDA=0, LDB=0, ALU=ALU_ADD   , AEN=1, LDMA=1, MEN=0, IEN=0, UBR=UBR_N
+// Reg[rd] <- Mem   
+        MT=MT_HU, LDIR=0, RS=RS_RD, RWR=1, REN=1,  AEN=0, LDMA=0, MWR=0, MEN=1, IEN=0, UBR=UBR_S
+// UBr to FETCH     
+        LDIR=0, REN=0,  AEN=0, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+   // extra LHU4 uop required since we can't both ujump to fetch0 or spin on LHU3
+
+// --- Integer Register-Immediate Instructions ---
+
+// LUI
+// Reg[rd]<- Imm20  
+LUI:     LDIR=0, RS=RS_RD, RWR=1, REN=1,  AEN=0, MEN=0, IS=IS_U, IEN=1, UBR=UBR_J , NEXT=FETCH
+
+// ADDI
+// A  <- Reg[rs1]   
+ADDI:    LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// B  <- Sext(Imm12)
+        LDIR=0, REN=0, LDA=0, LDB=1, AEN=0, MEN=0, IS=IS_I , IEN=1, UBR=UBR_N
+// Reg[rd] <- A + B 
+        LDIR=0, RS=RS_RD, RWR=1, REN=1, LDA=0, LDB=0, ALU=ALU_ADD , AEN=1, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+
+// SLTI
+// A  <- Reg[rs1]   
+SLTI:    LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// B  <- Sext(Imm12)
+        LDIR=0, REN=0, LDA=0, LDB=1, AEN=0, MEN=0, IS=IS_I , IEN=1, UBR=UBR_N
+// Reg[rd] <- $A<$B 
+        LDIR=0, RS=RS_RD, RWR=1, REN=1, LDA=0, LDB=0, ALU=ALU_SLT , AEN=1, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+
+// SLTIU
+// A  <- Reg[rs1]   
+SLTIU:   LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// B  <- Sext(Imm12)
+        LDIR=0, REN=0, LDA=0, LDB=1, AEN=0, MEN=0, IS=IS_I , IEN=1, UBR=UBR_N
+// Reg[rd] <- A < B 
+        LDIR=0, RS=RS_RD, RWR=1, REN=1, LDA=0, LDB=0, ALU=ALU_SLTU, AEN=1, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+
+// SLLI
+// A  <- Reg[rs1]   
+SLLI:    LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// B  <- Sext(Imm12)
+        LDIR=0, REN=0, LDA=0, LDB=1, AEN=0, MEN=0, IS=IS_I , IEN=1, UBR=UBR_N
+// Reg[rd] <- A << B
+        LDIR=0, RS=RS_RD, RWR=1, REN=1, LDA=0, LDB=0, ALU=ALU_SLL , AEN=1, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+
+// SRLI
+// A  <- Reg[rs1]   
+SRLI:    LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// B  <- Sext(Imm12)
+        LDIR=0, REN=0, LDA=0, LDB=1, AEN=0, MEN=0, IS=IS_I , IEN=1, UBR=UBR_N
+// Reg[rd] <- A>>>B 
+        LDIR=0, RS=RS_RD, RWR=1, REN=1, LDA=0, LDB=0, ALU=ALU_SRL , AEN=1, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+
+// SRAI
+// A  <- Reg[rs1]   
+SRAI:    LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// B  <- Sext(Imm12)
+        LDIR=0, REN=0, LDA=0, LDB=1, AEN=0, MEN=0, IS=IS_I , IEN=1, UBR=UBR_N
+// Reg[rd] <- A>>>B 
+        LDIR=0, RS=RS_RD, RWR=1, REN=1, LDA=0, LDB=0, ALU=ALU_SRA , AEN=1, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+
+// ANDI
+// A  <- Reg[rs1]   
+ANDI:    LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// B  <- Sext(Imm12)
+        LDIR=0, REN=0, LDA=0, LDB=1, AEN=0, MEN=0, IS=IS_I , IEN=1, UBR=UBR_N
+// Reg[rd] <- A & B 
+        LDIR=0, RS=RS_RD, RWR=1, REN=1, LDA=0, LDB=0, ALU=ALU_AND , AEN=1, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+
+// ORI
+// A  <- Reg[rs1]   
+ORI:     LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// B  <- Sext(Imm12)
+        LDIR=0, REN=0, LDA=0, LDB=1, AEN=0, MEN=0, IS=IS_I , IEN=1, UBR=UBR_N
+// Reg[rd] <- A | B 
+        LDIR=0, RS=RS_RD, RWR=1, REN=1, LDA=0, LDB=0, ALU=ALU_OR  , AEN=1, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+
+// XORI
+// A  <- Reg[rs1]   
+XORI:    LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// B  <- Sext(Imm12)
+        LDIR=0, REN=0, LDA=0, LDB=1, AEN=0, MEN=0, IS=IS_I , IEN=1, UBR=UBR_N
+// Reg[rd] <- A ^ B 
+        LDIR=0, RS=RS_RD, RWR=1, REN=1, LDA=0, LDB=0, ALU=ALU_XOR , AEN=1, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+
+// --- Integer Register-Register Instructions ----
+
+// ADD
+// A  <- Reg[rs1]   
+ADD:     LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// B  <- Reg[rs2]   
+        LDIR=0, RS=RS_RS2, RWR=0, REN=1, LDA=0, LDB=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// Reg[rd] <- A + B 
+        LDIR=0, RS=RS_RD, RWR=1, REN=1, LDA=0, LDB=0, ALU=ALU_ADD , AEN=1, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+
+// SUB
+// A  <- Reg[rs1]   
+SUB:     LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// B  <- Reg[rs2]   
+        LDIR=0, RS=RS_RS2, RWR=0, REN=1, LDA=0, LDB=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// Reg[rd] <- A - B 
+        LDIR=0, RS=RS_RD, RWR=1, REN=1, LDA=0, LDB=0, ALU=ALU_SUB , AEN=1, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+
+// SLT
+// A  <- Reg[rs1]   
+SLT:     LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// B  <- Reg[rs2]   
+        LDIR=0, RS=RS_RS2, RWR=0, REN=1, LDA=0, LDB=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// Reg[rd] <- $A<$B 
+        LDIR=0, RS=RS_RD, RWR=1, REN=1, LDA=0, LDB=0, ALU=ALU_SLT , AEN=1, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+
+// SLTU
+// A  <- Reg[rs1]   
+SLTU:    LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// B  <- Reg[rs2]   
+        LDIR=0, RS=RS_RS2, RWR=0, REN=1, LDA=0, LDB=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// Reg[rd] <- A < B 
+        LDIR=0, RS=RS_RD, RWR=1, REN=1, LDA=0, LDB=0, ALU=ALU_SLTU, AEN=1, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+
+// SLL
+// A  <- Reg[rs1]   
+SLL:     LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// B  <- Reg[rs2]   
+        LDIR=0, RS=RS_RS2, RWR=0, REN=1, LDA=0, LDB=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// Reg[rd] <- A << B
+        LDIR=0, RS=RS_RD, RWR=1, REN=1, LDA=0, LDB=0, ALU=ALU_SLL , AEN=1, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+
+// SRL
+// A  <- Reg[rs1]   
+SRL:     LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// B  <- Reg[rs2]   
+        LDIR=0, RS=RS_RS2, RWR=0, REN=1, LDA=0, LDB=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// Reg[rd] <- A>>>B 
+        LDIR=0, RS=RS_RD, RWR=1, REN=1, LDA=0, LDB=0, ALU=ALU_SRL , AEN=1, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+
+// SRA
+// A  <- Reg[rs1]   
+SRA:     LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// B  <- Reg[rs2]   
+        LDIR=0, RS=RS_RS2, RWR=0, REN=1, LDA=0, LDB=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// Reg[rd] <- A>>>B 
+        LDIR=0, RS=RS_RD, RWR=1, REN=1, LDA=0, LDB=0, ALU=ALU_SRA , AEN=1, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+
+// AND
+// A  <- Reg[rs1]   
+AND:     LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// B  <- Reg[rs2]   
+        LDIR=0, RS=RS_RS2, RWR=0, REN=1, LDA=0, LDB=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// Reg[rd] <- A & B 
+        LDIR=0, RS=RS_RD, RWR=1, REN=1, LDA=0, LDB=0, ALU=ALU_AND , AEN=1, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+
+// OR
+// A  <- Reg[rs1]   
+OR:      LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// B  <- Reg[rs2]   
+        LDIR=0, RS=RS_RS2, RWR=0, REN=1, LDA=0, LDB=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// Reg[rd] <- A | B 
+        LDIR=0, RS=RS_RD, RWR=1, REN=1, LDA=0, LDB=0, ALU=ALU_OR  , AEN=1, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+
+// XOR
+// A  <- Reg[rs1]   
+XOR:     LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// B  <- Reg[rs2]   
+        LDIR=0, RS=RS_RS2, RWR=0, REN=1, LDA=0, LDB=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// Reg[rd] <- A ^ B 
+        LDIR=0, RS=RS_RD, RWR=1, REN=1, LDA=0, LDB=0, ALU=ALU_XOR , AEN=1, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+
+
+// --- Control Transfer Instructions -------------
+
+   // note: Reg[PC] is actually storing PC+4...
+
+
+// JAL
+// A  <- PC         
+JAL:     LDIR=0, RS=RS_PC, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// Reg[x1] <- A     
+        LDIR=0, RS=RS_RD, RWR=1, REN=1, LDA=0, ALU=ALU_COPY_A, AEN=1, MEN=0, IEN=0, UBR=UBR_N
+// A  <- A - 4      
+        LDIR=0, REN=0, LDA=1, ALU=ALU_DEC_A_4, AEN=1, MEN=0, IEN=0, UBR=UBR_N
+// B  <- Sext(Imm25)
+        LDIR=0, REN=0, LDA=0, LDB=1, AEN=0, MEN=0, IS=IS_J , IEN=1, UBR=UBR_N
+// PC <- A + B      
+        LDIR=0, RS=RS_PC, RWR=1, REN=1, LDA=0, LDB=0, ALU=ALU_ADD , AEN=1, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+
+// JALR
+// A  <- PC         
+JALR:    LDIR=0, RS=RS_PC, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// Reg[rd] <- A     
+        LDIR=0, RS=RS_RD, RWR=1, REN=1, LDA=0, ALU=ALU_COPY_A, AEN=1, MEN=0, IEN=0, UBR=UBR_N
+// A  <- Reg[rs1]   
+        LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// B  <- Sext(Imm12)
+        LDIR=0, REN=0, LDA=0, LDB=1, AEN=0, MEN=0, IS=IS_I , IEN=1, UBR=UBR_N
+// PC,A <- A + B    
+        LDIR=0, RS=RS_PC, RWR=1, REN=1, LDA=1, LDB=0, ALU=ALU_ADD , AEN=1, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+
+// AUIPC
+// A  <- PC         
+AUIPC:   LDIR=0, RS=RS_PC, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// A  <- A - 4      
+        LDIR=0, RWR=0, REN=0, LDA=1, ALU=ALU_DEC_A_4, AEN=1, MEN=0, IEN=0, UBR=UBR_N
+// B  <- Imm-UType  
+        LDIR=0, REN=0, LDA=0, LDB=1, AEN=0, MEN=0, IS=IS_U , IEN=1, UBR=UBR_N
+// Reg[rd] <- A + B 
+        LDIR=0, RS=RS_RD, RWR=1, REN=1, ALU=ALU_ADD , AEN=1, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+
+
+
+// BEQ
+// A <- Reg[rs1]    
+BEQ:     LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// B <- Reg[rs2]    
+        LDIR=0, RS=RS_RS2, RWR=0, REN=1, LDA=0, LDB=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// if zero?(A-B)    
+        LDIR=0, RWR=0, REN=0, LDA=0, LDB=0, ALU=ALU_SUB , AEN=0, MEN=0, IEN=0, UBR=UBR_EZ , NEXT=BZ_TAKEN
+//   ubr to BZ-TAKEN
+// else             
+        LDIR=0, REN=0,  AEN=0, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+//    UBr to FETCH
+
+// BNE
+// A <- Reg[rs1]    
+BNE:     LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// B <- Reg[rs2]    
+        LDIR=0, RS=RS_RS2, RWR=0, REN=1, LDA=0, LDB=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// if not zero?(A-B)
+        LDIR=0, RWR=0, REN=0, LDA=0, LDB=0, ALU=ALU_SUB , AEN=0, MEN=0, IEN=0, UBR=UBR_NZ , NEXT=BZ_TAKEN
+//   ubr to BZ-TAKEN
+// else             
+        LDIR=0, REN=0,  AEN=0, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+//    UBr to FETCH
+
+// BLT
+// A <- Reg[rs1]    
+BLT:     LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// B <- Reg[rs2]    
+        LDIR=0, RS=RS_RS2, RWR=0, REN=1, LDA=0, LDB=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// A <- (A < B)     
+        LDIR=0, RWR=0, REN=0, LDA=1, LDB=0, ALU=ALU_SLT , AEN=1, MEN=0, IEN=0, UBR=UBR_N
+// if not zero?     
+        LDIR=0, RWR=0, REN=0, LDA=0, LDB=0, ALU=ALU_COPY_A, AEN=0, MEN=0, IEN=0, UBR=UBR_NZ , NEXT=BZ_TAKEN
+//   ubr to BZ-TAKEN
+// else             
+        LDIR=0, REN=0,  AEN=0, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+//    UBr to FETCH
+
+// BLTU
+// A <- Reg[rs1]    
+BLTU:    LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// B <- Reg[rs2]    
+        LDIR=0, RS=RS_RS2, RWR=0, REN=1, LDA=0, LDB=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// A <- (A < B)     
+        LDIR=0, RWR=0, REN=0, LDA=1, LDB=0, ALU=ALU_SLTU, AEN=1, MEN=0, IEN=0, UBR=UBR_N
+// if not zero?     
+        LDIR=0, RWR=0, REN=0, LDA=0, LDB=0, ALU=ALU_COPY_A, AEN=0, MEN=0, IEN=0, UBR=UBR_NZ , NEXT=BZ_TAKEN
+//   ubr to BZ-TAKEN
+// else             
+        LDIR=0, REN=0,  AEN=0, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+//    UBr to FETCH
+
+// BGE
+// A <- Reg[rs1]    
+BGE:     LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// B <- Reg[rs2]    
+        LDIR=0, RS=RS_RS2, RWR=0, REN=1, LDA=0, LDB=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// A <- (A < B)     
+        LDIR=0, RWR=0, REN=0, LDA=1, LDB=0, ALU=ALU_SLT , AEN=1, MEN=0, IEN=0, UBR=UBR_N
+// if not zero?     
+        LDIR=0, RWR=0, REN=0, LDA=0, LDB=0, ALU=ALU_COPY_A, AEN=0, MEN=0, IEN=0, UBR=UBR_EZ , NEXT=BZ_TAKEN
+//   ubr to BZ-TAKEN
+// else             
+        LDIR=0, REN=0,  AEN=0, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+//    UBr to FETCH
+
+// BGEU
+// A <- Reg[rs1]    
+BGEU:    LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// B <- Reg[rs2]    
+        LDIR=0, RS=RS_RS2, RWR=0, REN=1, LDA=0, LDB=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// A <- (A < B)     
+        LDIR=0, RWR=0, REN=0, LDA=1, LDB=0, ALU=ALU_SLTU, AEN=1, MEN=0, IEN=0, UBR=UBR_N
+// if not zero?     
+        LDIR=0, RWR=0, REN=0, LDA=0, LDB=0, ALU=ALU_COPY_A, AEN=0, MEN=0, IEN=0, UBR=UBR_EZ , NEXT=BZ_TAKEN
+//   ubr to BZ-TAKEN
+// else             
+        LDIR=0, REN=0,  AEN=0, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+//    UBr to FETCH
+
+// BZ-TAKEN
+// note: PC register is actually holding PC+4 (see 'FETCH2), so we have to dec4 to get the correct behavior.
+// A  <- PC        
+BZ_TAKEN: LDIR=0, RS=RS_PC, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// A  <- A - 4     
+         LDIR=0, RWR=0, REN=0, LDA=1, ALU=ALU_DEC_A_4, AEN=1, MEN=0, IEN=0, UBR=UBR_N
+// B  <- SSH1(Imm) 
+         LDIR=0, RWR=0, REN=0, LDA=0, LDB=1, AEN=0, MEN=0, IS=IS_B, IEN=1, UBR=UBR_N
+// PC <- A + B     
+         LDIR=0, RS=RS_PC, RWR=1, REN=1, LDA=0, LDB=0, ALU=ALU_ADD   , AEN=1, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+// UBr to FETCH
+
+// --- CSR Instructions --------
+
+// CSRRW
+// Reg[CSR addr]<-Imm
+CSRRW:  LDIR=0, RS=RS_CA, RWR=1, REN=1,  AEN=0, MEN=0, IS=IS_I, IEN=1, UBR=UBR_N
+// A <- Reg[rs1]     
+                 LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// Reg[CSR wdata]<-A 
+                 LDIR=0, RS=RS_CR, RWR=1, REN=1, LDA=0, ALU=ALU_COPY_A, AEN=1, MEN=0, IEN=0, UBR=UBR_N
+// A <- CSR.RS[addr] 
+                 CSR=CSR_W, LDIR=0, RS=RS_CR, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// Reg[rd] <- A      
+                 LDIR=0, RS=RS_RD, RWR=1, REN=1, LDA=0, ALU=ALU_COPY_A, AEN=1, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+// UBr to FETCH
+
+// CSRRC
+// Reg[CSR addr]<-Imm
+CSRRC:  LDIR=0, RS=RS_CA, RWR=1, REN=1,  AEN=0, MEN=0, IS=IS_I, IEN=1, UBR=UBR_N
+// A <- Reg[rs1]     
+                 LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// Reg[CSR wdata]<-A 
+                 LDIR=0, RS=RS_CR, RWR=1, REN=1, LDA=0, ALU=ALU_COPY_A, AEN=1, MEN=0, IEN=0, UBR=UBR_N
+// A <- CSR.RS[addr] 
+                 CSR=CSR_C, LDIR=0, RS=RS_CR, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// Reg[rd] <- A      
+                 LDIR=0, RS=RS_RD, RWR=1, REN=1, LDA=0, ALU=ALU_COPY_A, AEN=1, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+// UBr to FETCH
+
+// CSRRS
+// Reg[CSR addr]<-Imm
+CSRRS:  LDIR=0, RS=RS_CA, RWR=1, REN=1,  AEN=0, MEN=0, IS=IS_I, IEN=1, UBR=UBR_N
+// A <- Reg[rs1]     
+                 LDIR=0, RS=RS_RS1, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// Reg[CSR wdata]<-A 
+                 LDIR=0, RS=RS_CR, RWR=1, REN=1, LDA=0, ALU=ALU_COPY_A, AEN=1, MEN=0, IEN=0, UBR=UBR_N
+// A <- CSR.RS[addr] 
+                 CSR=CSR_S, LDIR=0, RS=RS_CR, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// Reg[rd] <- A      
+                 LDIR=0, RS=RS_RD, RWR=1, REN=1, LDA=0, ALU=ALU_COPY_A, AEN=1, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+// UBr to FETCH
+
+// CSRRWI
+// Reg[CSR addr]<-Imm
+CSRRWI: LDIR=0, RS=RS_CA, RWR=1, REN=1,  AEN=0, MEN=0, IS=IS_I, IEN=1, UBR=UBR_N
+// A <- Zext(ZImm)   
+                 LDIR=0, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IS=IS_Z, IEN=1, UBR=UBR_N
+// Reg[CSR wdata]<-A 
+                 LDIR=0, RS=RS_CR, RWR=1, REN=1, LDA=0, ALU=ALU_COPY_A, AEN=1, MEN=0, IEN=0, UBR=UBR_N
+// A <- CSR.RS[addr] 
+                 CSR=CSR_W, LDIR=0, RS=RS_CR, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// Reg[rd] <- A      
+                 LDIR=0, RS=RS_RD, RWR=1, REN=1, LDA=0, ALU=ALU_COPY_A, AEN=1, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+// UBr to FETCH
+
+// CSRRCI
+// Reg[CSR addr]<-Imm
+CSRRCI: LDIR=0, RS=RS_CA, RWR=1, REN=1,  AEN=0, MEN=0, IS=IS_I, IEN=1, UBR=UBR_N
+// A <- Zext(ZImm)   
+                 LDIR=0, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IS=IS_Z, IEN=1, UBR=UBR_N
+// Reg[CSR wdata]<-A 
+                 LDIR=0, RS=RS_CR, RWR=1, REN=1, LDA=0, ALU=ALU_COPY_A, AEN=1, MEN=0, IEN=0, UBR=UBR_N
+// A <- CSR.RS[addr] 
+                 CSR=CSR_C, LDIR=0, RS=RS_CR, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// Reg[rd] <- A      
+                 LDIR=0, RS=RS_RD, RWR=1, REN=1, LDA=0, ALU=ALU_COPY_A, AEN=1, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+// UBr to FETCH
+
+// CSRRSI
+// Reg[CSR addr]<-Imm
+CSRRSI: LDIR=0, RS=RS_CA, RWR=1, REN=1,  AEN=0, MEN=0, IS=IS_I, IEN=1, UBR=UBR_N
+// A <- Zext(ZImm)   
+                 LDIR=0, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IS=IS_Z, IEN=1, UBR=UBR_N
+// Reg[CSR wdata]<-A 
+                 LDIR=0, RS=RS_CR, RWR=1, REN=1, LDA=0, ALU=ALU_COPY_A, AEN=1, MEN=0, IEN=0, UBR=UBR_N
+// A <- CSR.RS[addr] 
+                 CSR=CSR_S, LDIR=0, RS=RS_CR, RWR=0, REN=1, LDA=1, AEN=0, MEN=0, IEN=0, UBR=UBR_N
+// Reg[rd] <- A      
+                 LDIR=0, RS=RS_RD, RWR=1, REN=1, LDA=0, ALU=ALU_COPY_A, AEN=1, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+// UBr to FETCH
+
+// --- Privileged Instructions --------
+
+// ERET,ECALL,EBREAK
+// pass inst to CSR
+// File and jmp to mepc.             
+DRET:
+MRET:
+ECALL:
+EBREAK:
+// Reg[CSR addr]<-Imm
+       LDIR=0, RS=RS_CA, RWR=1, REN=1,  AEN=0, MEN=0, IS=IS_I, IEN=1, UBR=UBR_N
+// PC <- EVEC        
+       CSR=CSR_I, LDIR=0, RS=RS_PC, RWR=1, REN=1, LDA=0, ALU=ALU_EVEC, AEN=1, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+
+// WFI, UBr to FETCH      
+WFI:  LDIR=0, REN=0,  AEN=0, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
+// EHALT, microcode loop (not executed)
+EHALT: UBR=UBR_J , NEXT=EHALT
+
+// Extra code
+EXTRA:
+.dispatch
+.end
