@@ -63,17 +63,16 @@ def error(message):
 def process_labels(tokens, linecount):
     global uPC, names
     for token in tokens:
-        match token[0]:
-            case TokenType.assign:
+        if token[0] == TokenType.assign:
                 splitsville = token[1].split('=')
                 if splitsville[0] == 'UBR':
                     uPC = uPC+1
-            case TokenType.label:
+        elif token[0] == TokenType.label:
                 name = token[1].strip()
                 names[name[:-1]] = uPC
-            case TokenType.int: error('unexpected integer ' + token[1])
-            case TokenType.string: error('unexpected string ' + token[1])
-            case _: pass
+        elif token[0] == TokenType.int: error('unexpected integer ' + token[1])
+        elif token[0] == TokenType.string: error('unexpected string ' + token[1])
+        else: pass
     return names
 
 def print_labels():
@@ -130,8 +129,7 @@ def process_again(tokens, linecount):
     global uPC, names, mode, uWord, uCode
     uWord = 0
     for token in tokens:
-        match token[0]:
-            case TokenType.assign:
+        if token[0] == TokenType.assign:
                 splitsville = token[1].split('=')
                 left = splitsville[0].strip()
                 right = splitsville[1].strip()
@@ -139,18 +137,19 @@ def process_again(tokens, linecount):
                 elif mode == '.constants': do_constant(left, right, linecount)
                 elif mode == '.code': do_code(left, right, linecount)
                 else: print('weirdness', mode)
-            case TokenType.label: pass # been there, done that
-            case TokenType.int: error('unexpected integer ' + token[1])
-            case TokenType.string: error('unexpected string ' + token[1])
-            case TokenType.command: mode = token[1]
-            case TokenType.range:
+        elif token[0] == TokenType.label: pass # been there, done that
+        elif token[0] == TokenType.int: error('unexpected integer ' + token[1])
+        elif token[0] == TokenType.string: error('unexpected string ' + token[1])
+        elif token[0] == TokenType.command: mode = token[1]
+        elif token[0] == TokenType.range:
                 splitsville = token[1].split('=')
                 left = splitsville[0].strip()
                 right = splitsville[1].strip()
                 if mode == '.fields': do_fields(left, right, linecount)
                 else: error('unexpected range ' + left)
-            case TokenType.otherwise: pass
-            case TokenType.id: error('unexpected id ' + token[1])
+        elif token[0] == TokenType.otherwise: pass
+        elif token[0] == TokenType.id: error('unexpected id ' + token[1])
+        else: pass # probably a comment
     if (mode == ".code") & (uWord != 0):
         uCode.append(uWord)
         print('%010x' % uWord)
