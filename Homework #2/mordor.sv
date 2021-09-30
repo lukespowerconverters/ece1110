@@ -98,8 +98,7 @@ memory memory (
     .mt (mt),
     .data_input (mem_data_input),
     .data_output (mem_data_output),
-    .busy (mem_is_busy),
-    .reset_n (reset_n)
+    .busy (mem_is_busy)
     );
 
 microcode code (

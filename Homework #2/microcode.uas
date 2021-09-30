@@ -594,8 +594,6 @@ EBREAK:
 WFI:  LDIR=0, REN=0,  AEN=0, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
 // EHALT, microcode loop (not executed)
 EHALT: UBR=UBR_J , NEXT=EHALT
-
-// Extra code
-EXTRA:
+EXTRA: // Extra code
 .dispatch
 .end

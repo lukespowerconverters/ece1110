@@ -5,7 +5,9 @@
 
 `endif
 
+/* verilator lint_off UNUSED */
 `include "decode.svh"
+/* verilator lint_on UNUSED */
 
 module decode(
 /* verilator lint_off UNUSED */

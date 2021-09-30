@@ -14,14 +14,12 @@ module microcode(
 
 logic [39:0] mem[256]; // ROM
 
-always_comb
+always_ff
 begin
-    if (reset_n) data_out = mem[address];
+    data_out = (reset_n) ? mem[address] : 0;
 end
 
-always_comb
-    if (!reset_n)
-    begin
+initial begin
         $readmemh("ucode.hex", mem);
     end
 

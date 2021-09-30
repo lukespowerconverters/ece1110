@@ -15,8 +15,7 @@ module memory(
     input logic mem_ld,
     input logic mem_wr,
     input [2:0] mt,
-    output logic busy,
-    input logic reset_n
+    output logic busy
     );
 
 //    [shw][sby][dat]    [sw   ]
@@ -49,7 +48,7 @@ assign word_addr = address[9:2];
           MT_H: data_output[0] <= mem[word_addr][address[1]];
           MT_B: data_output[0][0] <= mem[word_addr][address[1]][address[0]];
           MT_HU: data_output[address[1]] <= mem[word_addr][address[1]];
-          MT_BU: data_output[address[1]][0] <= mem[word_addr][address[1]][address[0]];
+          MT_BU: data_output[0][0] <= mem[word_addr][address[1]][address[0]];
             endcase
     	end
     end
@@ -63,11 +62,11 @@ assign word_addr = address[9:2];
 
     always_comb
     begin
-        if (!reset_n)
-        begin
-            $readmemh("program.hex", mem);
-        end
         busy = (mem_counter == MEM_WAIT) ? 0 : 1;
+    end
+
+    initial begin
+        $readmemh("program.hex", mem);
     end
 
     final begin

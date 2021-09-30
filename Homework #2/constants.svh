@@ -1,3 +1,4 @@
+/* verilator lint_off UNUSED */
 
     // Load IR Register Signal
     localparam LDIR_0  = 0;
@@ -125,3 +126,5 @@
 
     typedef enum logic [2:0] { MEM_WAIT, MEM_START, MEM_2, MEM_3, MEM_DONE} mem_state_type;
     typedef enum logic [2:0] { MT_W, MT_H, MT_B, MT_HU, MT_BU, MT_Q, MT_X, MT_XX} mem_size;
+
+/* verilator lint_on UNUSED */
