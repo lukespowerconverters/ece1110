@@ -595,5 +595,25 @@ WFI:  LDIR=0, REN=0,  AEN=0, MEN=0, IEN=0, UBR=UBR_J , NEXT=FETCH
 // EHALT, microcode loop (not executed)
 EHALT: UBR=UBR_J , NEXT=EHALT
 EXTRA: // Extra code
+// MA <- Reg[rs1]	source string address
+	RS=RS_RS1, RWR=0, REN=1, LDMA=1, MWR=0, MEN=0, UBR=UBR_N
+// B <- Mem
+	LDB=1, MWR=0, MEN=1, UBR=UBR_S
+// MA <- Reg[rd]	destination string address
+	REN=1, RS=RS_RD, RWR=0, LDMA=1, MEN=0, MWR=0, UBR=UBR_N
+// Mem <- B
+	AEN=1, MWR=1, MEN=1, ALU=ALU_COPY_B, UBR=UBR_S, MT=MT_H
+// A <- rd		store destination address in A
+	REN=1, RS=RS_RD, RWR=0, LDA=1, UBR=UBR_N
+// rd <- A++		move to next bit address
+	REN=1, RS=RS_RD, RWR=1, AEN=1, ALU=ALU_INC_A_1, UBR=UBR_N
+// A <- rs1		store source address in A
+	REN=1, RS=RS_RS1, RWR=0, LDA=1, UBR=UBR_N
+// rs1 <- A++		move to next bit address
+	REN=1, RS=RS_RS1, RWR=1, AEN=1, ALU=ALU_INC_A_1, UBR=UBR_N
+// BNE B=0
+	ALU=ALU_COPY_B, AEN=1, UBR=UBR_NZ, NEXT=EXTRA
+// fetch
+	LDIR=0, REN=0, AEN=0, MEN=0, IEN=0, UBR=UBR_J, NEXT=FETCH
 .dispatch
 .end

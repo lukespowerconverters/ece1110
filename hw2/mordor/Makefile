@@ -3,7 +3,7 @@ SRC = main.cpp mordor.sv cpath.sv dpath.sv decode.sv memory.sv microcode.sv cons
 run: obj_dir/Vmordor
 	obj_dir/Vmordor | head
 
-obj_dir/Vmordor: $(SRC)
+obj_dir/Vmordor: $(SRC) ucode.hex
 	verilator -Wall --cc mordor.sv --exe main.cpp
 	make -C obj_dir -j -f Vmordor.mk Vmordor
 
