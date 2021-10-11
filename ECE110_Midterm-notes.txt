@@ -1,0 +1,25 @@
+Midterm topics
+- single precision, double precision
+- addressing modes: haven't talked about a lot, ignore
+- IMMEDIATE VALUES
+- indirect addressing mode: didn't discuss, ignore
+- instruction address calculatio: didn't talk a lot about, ignore
+- all 3 kinds of hazards
+- predication
+- execution mode: haven't talked a lot about it, ignore
+- MULTITHREADING
+
+Format
+- start off with true/false
+- multiple choice
+- some problem-solving questions
+
+Suggestions/Other comments
+- put it down on paper, don't want Mark to have to guess
+- slow grader, will be awhile
+- will get voluminous comments (yay, can kms later)
+- ABSOLUTELY fan of partial credit
+- physical paper exam
+- about an hour and fifteen minutes, can stay later ("slop")
+- no bonus points for recipes or anything else
+- will be a "pity points" question in true/false
